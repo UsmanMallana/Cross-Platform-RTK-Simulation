@@ -1,0 +1,90 @@
+### GNSS-SDR RTK Simulation Guide
+
+**System Architecture*** **Signal Generator:** `gps-sur-sim` (Windows)* **Software Receiver:** `gnss-sdr` (WSL / Ubuntu)* **Configuration File:** `/usr/share/gnss-sdr/conf/gnss-sdr_GPS_L1_ishort.conf`
+
+---
+
+### Phase 1: Generate Signals (Windows)
+**Goal:** Create raw binary signal files for the moving Rover and the static Base Station.
+
+1. Open **Command Prompt (cmd)** on Windows.
+2. Navigate to your simulator directory.
+
+**Step 1.1: Generate Rover Signal (Moving or Static Test)***(Simulates the rover at 30.0, 70.0 for 5 minutes)*
+```cmd
+gps-sdr-sim.exe -e brdc0300.26n -l 30.0,70.0,100 -o C:\gps_test\simulation_standard.bin -s 4000000 -d 300
+```
+
+**Step 1.2: Generate Base Station Signal (Static Reference)**
+*(Simulates a fixed station nearby at 30.0001, 70.0001)*
+```cmd
+gps-sdr-sim.exe -e brdc0300.26n -l 30.0001,70.0001,100 -o C:\gps_test\base_simulation.bin -s 4000000 -d 300
+```
+
+---
+
+### Phase 2: Process the Rover (WSL)
+**Goal:** Configure the receiver to read the Rover signal and output `rover.obs`.
+
+1. **Open the Config File:**
+   ```bash
+   sudo nano /usr/share/gnss-sdr/conf/gnss-sdr_GALILET_L1_ishort.conf
+   ```
+
+2. **Edit Input (SignalSource):**
+   * Find `SignalSource.filename`.
+   * Change to: `/mnt/c/gps_test/simulation_standard.bin`
+
+3. **Edit Output (PVT):**
+   * Scroll to the `[PVT]` section at the bottom.
+   * Change `output_filename` to: `/mnt/c/gps_test/rover.obs`
+
+4. **Run:**
+   ```bash
+   gnss-sdr --config_file=/usr/share/gnss-sdr/conf/gnss-sdr_GPS_L1_ishort.conf
+   ```
+   * Run for ~60 seconds, then press `Ctrl+C`.
+
+5. **Save Navigation File:**
+   * Rename the auto-generated `.26N` file:
+   ```bash
+   mv /mnt/c/gps_test/*.26N /mnt/c/gps_test/navigation.nav
+   ```
+
+---
+
+### Phase 3: Process the Base Station (WSL)
+**Goal:** Configure the receiver to read the Base signal and output `base.obs`.
+
+1. **Open the Config File:**
+   ```bash
+   sudo nano /usr/share/gnss-sdr/conf/gnss-sdr_GALILET_L1_ishort.conf
+   ```
+
+2. **Edit Input (SignalSource):**
+   * Change to: `/mnt/c/gps_test/base_simulation.bin`
+
+3. **Edit Output (PVT):**
+   * Change `output_filename` to: `/mnt/c/gps_test/base.obs`
+
+4. **Run:**
+   ```bash
+   gnss-sdr --config_file=/usr/share/gnss-sdr/conf/gnss-sdr_GALILET_L1_ishort.conf
+   ```
+   * Run for ~60 seconds, then press `Ctrl+C`.
+
+---
+
+### Phase 4: RTK Processing (RTKPOST on Windows)
+**Goal:** Generate the high-precision solution.
+
+1. **Open RTKPOST.**
+2. **Select Files:**
+   * **Rover:** `C:\gps_test\rover.obs`
+   * **Base Station:** `C:\gps_test\base.obs`
+   * **NAV:** `C:\gps_test\navigation.nav
+3. **Configure Base Position (Crucial):**
+   * Click **Options** -> **Positions**.
+   * Set Base Station to **Lat/Lon/Height**.
+   * Enter the exact coordinates used in Step 1.2: **30.0001, 70.0001, 100.0**.
+4. **Execute:** Click "Execute" to generate the `.pos` solution and Plot to view the graph.
